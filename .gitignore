@@ -1,0 +1,62 @@
+# Python caches and packaging
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local configuration, credentials and private keys
+.env
+.env.*
+!.env.example
+!.env.template
+.aws/
+credentials
+credentials.*
+*credentials*.json
+*service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+
+# Local datasets and generated outputs
+data/
+datasets/
+local_data/
+outputs/
+artifacts/
+*.csv
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.sqlite
+*.sqlite3
+*.db
+*.log
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Local editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
