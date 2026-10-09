@@ -1,6 +1,7 @@
 # HeatShield — Cooling Where It Counts
 
-Phase 1 only: dependency-free Python 3.10+ single-zone archetype engine.
+Dependency-free Python 3.10+ thermal archetype engine, with Phase 3A municipal
+intervention scenarios and budget optimization. The Phase 1 engine is unchanged.
 These are model demonstrations, not digital twins, validated indoor-temperature
 predictions, established intervention effects, or human-health risk estimates.
 
@@ -112,5 +113,22 @@ and exterior films; initialization/warm-up; roof-plane weather; and occupancy.
 Humidity, radiant temperature, air speed, comfort and physiology are absent.
 Measured indoor/outdoor data, independent held-out evaluation, parameter estimation
 and uncertainty analysis would be required for scientific validation. Tests check
-implementation and physical consistency only. Municipal optimization and all later
-phases require separate approval.
+implementation and physical consistency only. Further development phases require separate approval.
+
+
+## Phase 3A: synthetic municipal scenarios
+
+Compare baseline, cool-roof, insulation and shading options, then allocate an
+explicit budget using exact sparse dynamic programming for rounded benefit scores.
+Inputs and costs require provenance; synthetic results are not validated household
+predictions, health risk estimates or established intervention effects. Real-data
+validation remains paused. Phase 3B sensitivity analysis is not implemented.
+
+```powershell
+python -B -m examples.municipal_demo --budget 75000 --output outputs/municipal_demo.json
+```
+
+The reproducible demo uses 30 hypothetical buildings and 168 hours of analytic
+weather. The budget is in illustrative INR major units. See [Phase 3A documentation](docs/phase3a.md)
+for contracts, physical/cost assumptions, precision, tie-breaking, solver limits,
+actual verification results and limitations. Generated outputs stay out of Git.
