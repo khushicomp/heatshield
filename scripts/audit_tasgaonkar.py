@@ -62,6 +62,20 @@ def parse_timestamp(date, time, order):
     return None
 
 
+def parse_month_label(value):
+    """Return month and optional year, preserving unknown labels as unknown."""
+    numeric, status = number(value)
+    if status == 'valid' and numeric.is_integer() and 1 <= numeric <= 12:
+        return int(numeric), None
+    for pattern in ('%b-%y', '%B-%y', '%b', '%B'):
+        try:
+            parsed = datetime.strptime(value.strip(), pattern)
+            return parsed.month, parsed.year if '%y' in pattern else None
+        except ValueError:
+            pass
+    return None, None
+
+
 def timestamp_profile(rows, date_i, time_i, month_i, order, cadence_minutes):
     parsed = [parse_timestamp(row[date_i], row[time_i], order) for row in rows]
     valid = [stamp for stamp in parsed if stamp is not None]
@@ -69,6 +83,7 @@ def timestamp_profile(rows, date_i, time_i, month_i, order, cadence_minutes):
     unique = sorted(counts)
     deltas = [(right-left).total_seconds()/60 for left, right in zip(unique, unique[1:])]
     month_comparable = month_mismatches = 0
+    year_comparable = year_mismatches = 0
     for row, stamp in zip(rows, parsed):
         month, status = number(row[month_i])
         if status != 'valid':
@@ -83,6 +98,10 @@ def timestamp_profile(rows, date_i, time_i, month_i, order, cadence_minutes):
         if stamp is not None and status == 'valid':
             month_comparable += 1
             month_mismatches += month != stamp.month
+        _, label_year = parse_month_label(row[month_i])
+        if stamp is not None and label_year is not None:
+            year_comparable += 1
+            year_mismatches += label_year != stamp.year
     return parsed, {
         'order_hypothesis': order, 'timezone': 'unverified; naive diagnostics only',
         'parse_failures': len(rows)-len(valid), 'unique_timestamps': len(unique),
@@ -91,6 +110,7 @@ def timestamp_profile(rows, date_i, time_i, month_i, order, cadence_minutes):
         'first': unique[0].isoformat() if unique else None,
         'last': unique[-1].isoformat() if unique else None,
         'month_comparable': month_comparable, 'month_mismatches': month_mismatches,
+        'year_comparable': year_comparable, 'year_mismatches': year_mismatches,
         'cadence_minutes': cadence_minutes,
         'gaps_over_cadence': sum(delta>cadence_minutes for delta in deltas),
         'largest_gap_minutes': max(deltas, default=0),
@@ -117,6 +137,126 @@ def duplicate_conflicts(rows, stamps, value_i):
         if stamp is not None and status=='valid':
             values[stamp].add(value)
     return sum(len(v)>1 for v in values.values())
+
+
+def classify_duplicates(rows, stamps, value_indices):
+    """Classify timestamp groups without merging, deleting or preferring rows."""
+    grouped = collections.defaultdict(list)
+    for row_number, (row, stamp) in enumerate(zip(rows, stamps), 2):
+        if stamp is not None:
+            grouped[stamp].append((row_number, row))
+    counts = collections.Counter()
+    details = []
+    for stamp, group in sorted(grouped.items()):
+        if len(group) < 2:
+            continue
+        payloads = [tuple(number(row[i]) for i in value_indices) for _, row in group]
+        if any(status == 'invalid' for payload in payloads for _, status in payload):
+            category = 'invalid_payload'
+        elif any(len({payload[j][0] for payload in payloads if payload[j][1] == 'valid'}) > 1
+                 for j in range(len(value_indices))):
+            category = 'conflicting_measurements'
+        elif len(set(payloads)) == 1:
+            category = 'identical_measurements'
+        else:
+            category = 'complementary_missingness'
+        counts[category] += 1
+        details.append({'timestamp': stamp.isoformat(), 'source_rows': [n for n, _ in group],
+                        'category': category,
+                        'all_raw_fields_identical': len({tuple(r) for _, r in group}) == 1})
+    return {'group_counts': dict(counts), 'groups': details,
+            'excess_rows': sum(len(g['source_rows']) - 1 for g in details)}
+
+
+def identifier_mapping(indoor_header, housing_ids):
+    """Only trim boundary whitespace; RH is a channel of the same logger.
+
+    Collisions are a hard error, never a many-to-one automatic join.
+    Output contains real IDs and belongs only in ignored local storage.
+    """
+    normalized = [value.strip() for value in housing_ids]
+    if len(set(normalized)) != len(normalized):
+        raise ValueError('Housing identifier collision after whitespace normalization')
+    channels = []
+    for i, raw in enumerate(indoor_header):
+        match = re.fullmatch(r'(\d{8})(?:\s*\(RH\))?', raw.strip())
+        if match:
+            channels.append({'column_index': i, 'raw_header': raw, 'logger_id': match[1],
+                             'channel': 'rh' if '(RH)' in raw else 'temperature'})
+    temp_ids = [c['logger_id'] for c in channels if c['channel'] == 'temperature']
+    if len(set(temp_ids)) != len(temp_ids):
+        raise ValueError('Duplicate temperature-channel identifier')
+    temp, houses = set(temp_ids), set(normalized)
+    return {'rule': 'exact string equality after boundary whitespace removal; no fuzzy matching',
+            'channels': channels, 'matched_temperature_ids': sorted(temp & houses),
+            'indoor_only_ids': sorted(temp - houses), 'housing_only_ids': sorted(houses - temp),
+            'household_grouping_verified': False}
+
+
+def weather_integrity(header, rows):
+    """Compare redundant calendar fields; do not interpret reception clock as sampling."""
+    date_i, month_i = column(header, 'DD/MM/YYYY'), column(header, 'Month')
+    trailing_i = column(header, 'Date')
+    time_columns = [i for i, h in enumerate(header) if h.strip() == 'Time']
+    if len(time_columns) != 2:
+        raise ValueError('Expected two positional weather Time columns')
+    time_i = time_columns[0]
+    stamps = [parse_timestamp(r[date_i], r[time_i], 'DMY') for r in rows]
+    comparisons = {}
+    for leading_order in ('DMY', 'MDY'):
+        for trailing_order in ('DMY', 'MDY'):
+            comparable = equal = 0
+            for row in rows:
+                leading = parse_timestamp(row[date_i], '00:00', leading_order)
+                trailing = parse_timestamp(row[trailing_i], '00:00', trailing_order)
+                if leading is not None and trailing is not None:
+                    comparable += 1
+                    equal += leading.date() == trailing.date()
+            comparisons[f'{leading_order}_leading_{trailing_order}_trailing'] = {
+                'comparable': comparable, 'equal_calendar_dates': equal,
+                'unequal_calendar_dates': comparable - equal}
+    mismatches, blocks = [], []
+    year_comparable = year_mismatches = 0
+    groups = collections.Counter()
+    for row_number, (row, stamp) in enumerate(zip(rows, stamps), 2):
+        month, year = parse_month_label(row[month_i])
+        if stamp is None or month is None:
+            continue
+        if year is not None:
+            year_comparable += 1
+            year_mismatches += year != stamp.year
+        if month != stamp.month or (year is not None and year != stamp.year):
+            group = (stamp.strftime('%Y-%m'), row[month_i])
+            groups[group] += 1
+            detail = {'source_row': row_number, 'parsed_timestamp': stamp.isoformat(),
+                      'raw_fields_by_position': {str(i): row[i] for i in
+                                                (date_i, time_i, 2, month_i, time_columns[1], trailing_i,
+                                                 column(header, 'ReceiveTime'), column(header, 'ReceiveDate'))}}
+            mismatches.append(detail)
+            if blocks and blocks[-1]['last_source_row'] == row_number - 1 and blocks[-1]['group'] == list(group):
+                blocks[-1]['last_source_row'] = row_number
+                blocks[-1]['count'] += 1
+            else:
+                blocks.append({'first_source_row': row_number, 'last_source_row': row_number,
+                               'group': list(group), 'count': 1})
+    reception_day_differences = collections.Counter()
+    for row, stamp in zip(rows, stamps):
+        receive = parse_timestamp(row[column(header, 'ReceiveDate')], '00:00', 'MDY')
+        if stamp is not None and receive is not None:
+            reception_day_differences[(receive.date() - stamp.date()).days] += 1
+    value_indices = [column(header, label) for label in
+                     ('Air temperature', 'Solar radiation', 'Humidity', 'Pressure')]
+    return {'status': 'diagnostics only; timezone and interval semantics unverified',
+            'field_positions': {str(i): name for i, name in enumerate(header)},
+            'date_order_comparisons': comparisons,
+            'receive_date_mdy_minus_leading_date_dmy_days': dict(sorted(reception_day_differences.items())),
+            'year_label_comparable': year_comparable, 'year_label_disagreements': year_mismatches,
+            'month_year_disagreements': len(mismatches),
+            'disagreement_groups': [{'parsed_year_month': a, 'raw_month_label': b, 'rows': n}
+                                    for (a, b), n in sorted(groups.items())],
+            'disagreement_blocks': blocks, 'disagreement_details': mismatches,
+            'duplicates': classify_duplicates(rows, stamps, value_indices),
+            'duplicate_payload_fields': [header[i] for i in value_indices]}
 
 
 def audit(root):
@@ -198,6 +338,12 @@ def audit(root):
         'indoor_loggers_with_conflicting_duplicate_temperatures':sum(duplicate_conflicts(indoor,ip,i)>0 for i in logger_columns),
         'weather_conflicting_duplicate_temperatures':duplicate_conflicts(weather,wp,column(wh,'Air temperature')),
         'weather_zero_temperature_rows':sum(number(row[column(wh,'Air temperature')])[0]==0 for row in weather),
+    }
+    result['integrity'] = {
+        'weather': weather_integrity(wh, weather),
+        'mapping': identifier_mapping(ih, [row[column(hh, 'Logger ID')] for row in housing]),
+        'indoor_duplicates': classify_duplicates(indoor, ip, logger_columns),
+        'indoor_duplicate_payload': 'temperature channels only; RH excluded',
     }
     return result
 
