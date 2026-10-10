@@ -7,6 +7,11 @@ predictions, established intervention effects, or human-health risk estimates.
 
 ## Run locally
 
+Phase 4 adds a local Python API and React dashboard. See
+[Phase 4 startup and API contract](docs/phase4.md) for the two-terminal workflow,
+frontend build, request limits and verification commands. The scientific core
+remains dependency-free; frontend dependencies are isolated under `frontend/`.
+
 From the repository root:
 
 ```powershell
@@ -16,7 +21,8 @@ python -m examples.demo
 
 Optional installation: `python -m pip install -e .`. Runtime uses only the standard
 library, has no filesystem/network side effects, and can be packaged for a later
-Lambda handler. No frontend, cloud resources, database, authentication or ML exists.
+Lambda handler. A local frontend/API now exists; no cloud resources, database,
+authentication or ML is included.
 
 ## Model and units
 
@@ -132,3 +138,13 @@ The reproducible demo uses 30 hypothetical buildings and 168 hours of analytic
 weather. The budget is in illustrative INR major units. See [Phase 3A documentation](docs/phase3a.md)
 for contracts, physical/cost assumptions, precision, tie-breaking, solver limits,
 actual verification results and limitations. Generated outputs stay out of Git.
+
+## Synthetic stress-scenario interpretation
+
+The municipal preset is a **Roof-dominated synthetic stress scenario**. Large
+simulated temperature differences depend on provisional roof, ventilation, solar
+and effective-capacitance assumptions. Walls, windows, floors and variable
+ventilation are not represented by this reduced-order model. The preset is not
+representative housing evidence or an empirically established intervention effect.
+This transparency update preserves every numerical input, equation, trajectory,
+cost and optimization result; it does not tune temperatures or add model physics.

@@ -121,3 +121,13 @@ The default demo (INR 75,000 budget) completed in **0.072774 s**, measuring cons
 - Pretty JSON artifact: 1,514,276 bytes. Recomputed JSON was byte-identical, with budget, unique selections and all trajectory lengths checked.
 
 Runtime is an observation from this local run, not a deployment benchmark or SLA. No accuracy, causal effect or municipal policy effectiveness is established by these figures. Unknown ventilation, capacitance, gains, exterior conditions, shading physics, costs and initial states can change rankings. Buildings are weighted equally regardless of size, population or vulnerability; equity is not modelled. Sensitivity analysis is deferred to separately approved Phase 3B.
+
+## Synthetic stress-scenario interpretation
+
+The municipal preset is a **Roof-dominated synthetic stress scenario**. Large
+simulated temperature differences depend on provisional roof, ventilation, solar
+and effective-capacitance assumptions. Walls, windows, floors and variable
+ventilation are not represented by this reduced-order model. The preset is not
+representative housing evidence or an empirically established intervention effect.
+This transparency update preserves every numerical input, equation, trajectory,
+cost and optimization result; it does not tune temperatures or add model physics.

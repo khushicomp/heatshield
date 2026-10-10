@@ -1,4 +1,8 @@
 # Python caches and packaging
+node_modules/
+.npm-cache/
+frontend/dist/
+frontend/coverage/
 __pycache__/
 *.py[cod]
 *.egg-info/
