@@ -9,8 +9,24 @@ it('posts the exact bounded request to the real API path', async () => {
   expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ preset_id: 'synthetic_municipal_v1', budget_minor: 29, threshold_c: 30 });
 });
 it('surfaces structured server errors', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: { message: 'Invalid request', fields: { budget_minor: 'Out of range' } } }) }));
-  await expect(requestAllocation(0, 30)).rejects.toThrow('Invalid request Out of range');
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: { code: 'VALIDATION_ERROR', fields: { budget_minor: 'Out of range', threshold_c: 'Out of range' } } }) }));
+  await expect(requestAllocation(0, 30)).rejects.toThrow('Enter a budget from INR 0 to INR 10,00,000');
+  await expect(requestAllocation(0, 30)).rejects.toThrow('Choose a temperature limit between 15 and 45 °C.');
+});
+it.each([
+  ['OPTIMIZATION_STATE_LIMIT', 422, 'No new plan was created'],
+  [undefined, 429, 'Wait a moment'],
+  ['INTERNAL_ERROR', 500, 'We could not create your cooling plan']
+])('gives a plain-language next step for %s errors', async (code, status, message) => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status, json: async () => ({ error: { code, message: 'Technical server detail' } }) }));
+  await expect(requestAllocation(0, 30)).rejects.toThrow(message);
+  await expect(requestAllocation(0, 30)).rejects.not.toThrow('Technical server detail');
+});
+it('explains connection and unreadable-response failures', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+  await expect(requestAllocation(0, 30)).rejects.toThrow('Check your connection and try again');
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => { throw new SyntaxError(); } }));
+  await expect(requestAllocation(0, 30)).rejects.toThrow('unreadable response');
 });
 it('uses the configured production HTTPS origin and preserves exact request values', async () => {
   vi.stubEnv('VITE_API_BASE_URL', 'https://example.execute-api.ap-southeast-2.amazonaws.com/');

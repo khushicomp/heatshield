@@ -30,8 +30,8 @@ assert.deepEqual(result, JSON.parse(directText));
 const zero = await requestAllocation(toPaise('0'), 30);
 assert.equal(zero.allocation.spent_minor, 0);
 assert.ok(zero.allocation.selections.every(s => s.option_id === 'baseline'));
-await assert.rejects(() => requestAllocation(-1, 30), /Request validation failed/);
-await assert.rejects(() => requestAllocation(0, 46), /Request validation failed/);
+await assert.rejects(() => requestAllocation(-1, 30), /Enter a budget/);
+await assert.rejects(() => requestAllocation(0, 46), /Choose a temperature limit/);
 const malformed = await fetch('/api/allocations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' });
 assert.equal(malformed.status, 400);
 console.log(JSON.stringify({ verified_proxy: base, status: 'PASS', buildings: 30, hours: 168,

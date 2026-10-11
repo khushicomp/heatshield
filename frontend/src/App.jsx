@@ -20,21 +20,21 @@ export default function App() {
     try {
       const minor = toPaise(budget);
       const degrees = Number(threshold);
-      if (!threshold.trim() || !Number.isFinite(degrees) || degrees < 15 || degrees > 45) throw new Error('Threshold must be between 15 and 45 °C.');
+      if (!threshold.trim() || !Number.isFinite(degrees) || degrees < 15 || degrees > 45) throw new Error('Choose a temperature limit between 15 and 45 °C.');
       setLoading(true); setDetail(null);
       const response = await requestAllocation(minor, degrees);
       setResult(response); setSubmitted({ budget, threshold });
-    } catch (e) { setError(e.message || 'Unable to connect to the local API.'); }
+    } catch (e) { setError(e.message || 'We could not create your cooling plan. Please try again.'); }
     finally { setLoading(false); }
   }
-  return <><header className="site-header"><div className="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><path d="M20 5 32 10v10c0 7-7 12-12 15C15 32 8 27 8 20V10L20 5Z" stroke="currentColor" strokeWidth="2"/><path d="M14 21c3-7 6 7 12 0M14 16c3-7 6 7 12 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></div><div><h1>HeatShield<span className="brand-dot" aria-hidden="true">.</span></h1><p>Cooling Where It Counts</p></div><span className="header-label"><span className="status-dot" aria-hidden="true"/> MUNICIPAL COOLING PLANNER</span></header>
-    <main><div className="notice"><strong>Synthetic scenario — not empirically validated</strong><span>Roof-dominated synthetic stress scenario</span><span>Explore provisional cooling allocations. These are not predictions for actual households.</span></div>
+  return <><header className="site-header"><div className="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><path d="M20 5 32 10v10c0 7-7 12-12 15C15 32 8 27 8 20V10L20 5Z" stroke="currentColor" strokeWidth="2"/><path d="M14 21c3-7 6 7 12 0M14 16c3-7 6 7 12 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></div><div><h1>HeatShield<span className="brand-dot" aria-hidden="true">.</span></h1><p>Cooling Where It Counts</p></div><span className="header-label"><span className="status-dot" aria-hidden="true"/> COOLING BUDGET PLANNER</span></header>
+    <main><div className="notice"><strong>Example building data — results have not been checked against real buildings</strong><span>This made-up (synthetic) example tests very hot conditions where the roof has a large effect. The estimates are not predictions for actual homes.</span></div>
       <PlanningControls {...{ budget, threshold, setBudget, setThreshold, loading }} onSubmit={run}/>
-      {error && <div role="alert" className="error">{error}{result && ' The previous successful result remains below.'}</div>}
-      {loading && <p role="status">Simulating baseline and cooling options, then allocating your budget…</p>}
-      {result ? <><p className="result-context" role="status">{stale ? 'Controls changed — run again to update. ' : ''}Showing submitted scenario: INR {submitted.budget}, threshold {result.threshold_c} °C.</p><AllocationSummary result={result}/><BuildingTable result={result} onSelect={(building, selection) => setDetail({ building, selection })}/></> : !loading && <section className="panel empty"><h2>A clearer view of cooling choices</h2><p>Set your budget and run an allocation to compare cool roofs, insulation and shading.</p><span>30 buildings · 168 hours · 3 intervention options</span></section>}
+      {error && <div role="alert" className="error">{error}{result && ' Your previous cooling plan is still shown below.'}</div>}
+      {loading && <p role="status">Comparing cooling improvements and finding a plan within your budget…</p>}
+      {result ? <><p className="result-context" role="status">{stale ? 'Settings changed — create a new plan to update these results. ' : ''}Plan shown: INR {submitted.budget} budget, {result.threshold_c} °C temperature limit.</p><AllocationSummary result={result}/><BuildingTable result={result} onSelect={(building, selection) => setDetail({ building, selection })}/></> : !loading && <section className="panel empty"><h2>See what your cooling budget could cover</h2><p>Enter a budget and temperature limit, then choose Create cooling plan. We will compare reflective roofs, roof insulation and roof shading.</p><span>30 example buildings · 7 days of hourly estimates · 3 types of improvement</span></section>}
       <TransparencyPanel result={result}/>
-    </main><footer>HeatShield · Environmental decision-support demonstration · No real household data</footer>
+    </main><footer>HeatShield · An example tool for exploring cooling choices · No real household data</footer>
     {detail && <BuildingDetail detail={detail} result={result} onClose={() => setDetail(null)}/>}
   </>;
 }
