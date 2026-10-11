@@ -1,150 +1,133 @@
 # HeatShield — Cooling Where It Counts
 
-Dependency-free Python 3.10+ thermal archetype engine, with Phase 3A municipal
-intervention scenarios and budget optimization. The Phase 1 engine is unchanged.
-These are model demonstrations, not digital twins, validated indoor-temperature
-predictions, established intervention effects, or human-health risk estimates.
+**Explore cooling interventions. Allocate a limited budget. See the assumptions.**
 
-## Run locally
+[Live dashboard](https://staging.d22u8i6a71q15e.amplifyapp.com/) · [GitHub](https://github.com/khushicomp/heatshield) · [Demo script](docs/DEMO_SCRIPT.md) · [Submission](docs/HACKATHON_SUBMISSION.md)
 
-Phase 4 adds a local Python API and React dashboard. See
-[Phase 4 startup and API contract](docs/phase4.md) for the two-terminal workflow,
-frontend build, request limits and verification commands. The scientific core
-remains dependency-free; frontend dependencies are isolated under `frontend/`.
+> **Synthetic scenario — not empirically validated.** The dashboard uses a **Roof-dominated synthetic stress scenario**: 30 hypothetical buildings and seven days of analytic hourly weather. Results are model demonstrations, not predictions for actual households, established cooling effects or public-health outcomes.
 
-From the repository root:
+## Problem and solution
 
-```powershell
-python -m unittest discover -s tests -v
-python -m examples.demo
-```
+Municipal cooling budgets are limited, while buildings respond differently to heat and interventions have different costs. HeatShield makes that allocation problem explorable: simulate a baseline and cooling options for each hypothetical building, compare estimated overheating, then choose a budget-feasible allocation.
 
-Optional installation: `python -m pip install -e .`. Runtime uses only the standard
-library, has no filesystem/network side effects, and can be packaged for a later
-Lambda handler. A local frontend/API now exists; no cloud resources, database,
-authentication or ML is included.
+The working application provides:
 
-## Model and units
+- Configurable municipal budget in INR and overheating threshold in °C.
+- Baseline, cool-roof, insulation and roof-shading simulations.
+- Exact multiple-choice budget optimization for explicitly rounded model scores.
+- Spending, remaining budget, intervention distribution and building allocations.
+- Building-level hourly temperature comparisons, signed option benefits and physical assumptions.
+- A React dashboard on AWS Amplify, connected through API Gateway to Python on AWS Lambda.
+
+There are no dataset uploads, authentication, persistent storage, ML models or arbitrary heat-risk scores. The public API accepts only the synthetic preset, budget and threshold.
+
+## How it works
+
+The single-zone thermal model uses whole-building SI quantities:
 
 ```text
-C dT/dt = UA (T_sol_air - T) + H_vent (T_out - T) + Q_internal
-T_sol_air = T_out + alpha I_roof / h_out - longwave_correction
+C dT/dt = UA(T_sol_air − T) + H_vent(T_out − T) + Q_internal
+T_sol_air = T_out + alpha I_roof / h_out − longwave_correction
 ```
 
-The ventilation and gain terms are interpreted as additions: warmer outdoor air
-and positive internal heat generation warm the zone. Temperatures are Celsius;
-differences are kelvin. Time is seconds internally.
+`U` is area-normalized roof transmittance in W/(m²·K); `A` is roof area in m². `UA` and ventilation conductance `H_vent` are in W/K; effective whole-zone capacitance `C` is in J/K; internal gains are in W. Roof resistance is `1/UA` K/W and equivalent parallel-path resistance is `1/(UA + H_vent)`. Absorptance `alpha` is dimensionless, roof-plane irradiance is in W/m², and exterior coefficient `h_out` is in W/(m²·K).
 
-- Roof U: W/(m² K), area-normalized transmittance through the complete roof assembly,
-  including consistent surface resistance assumptions; not material conductivity.
-- Roof area A: m². UA: W/K, whole-building roof conductance.
-- Ventilation H: W/K, whole-building sensible exchange conductance, not an air-change
-  rate or a surface convection coefficient. Q: whole-building watts (nonnegative).
-- C: J/K, whole-building effective thermal capacitance of the coupled air, fabric
-  and contents. It is not roof material heat capacity alone. If a capacitance is
-  given per floor area, multiply by floor area, not automatically roof area.
-- R_roof = 1/UA and equivalent R = 1/(UA+H), K/W. Parallel roof and ventilation
-  paths share one thermal storage node; tau = RC seconds. Zero total conductance
-  has infinite R/tau and follows C dT/dt = Q.
-- Alpha: dimensionless absorbed solar fraction [0,1]. I: W/m² incident on the roof
-  plane, not automatically horizontal weather irradiance for a tilted roof.
-- h_out: W/(m² K), effective exterior coefficient for the simplified sol-air model.
-  Longwave correction: K, positive values cool the effective boundary.
+Exact exponential integration advances the linear model under constant forcing within each hour. Outputs are end-of-hour temperatures. Cool roofs reduce absorptance, insulation adds roof resistance, and shading attenuates incident solar; they do not interchange these mechanisms.
 
-A coating changes alpha only. `cool_roof` preserves U, C, area and other inputs.
-Metal, fibre-cement, uninsulated concrete and reflective roof labels are supported;
-labels do not secretly select physical constants. A reflective roof needs an
-explicit substrate U and effective zone C. Material alone cannot determine them.
+Overheating degree-hours are `sum(max(T_end_hour − threshold, 0) × 1 hour)`, in **K·h**. For example, 2 K above the threshold for 3 sampled hours contributes 6 K·h. This accumulated building-overheating proxy is **not degrees Celsius of cooling**, a health-risk measure or a thermal-comfort compliance assessment.
 
-## Numerical and reporting conventions
+Signed avoided K·h equals baseline minus intervention overheating. Negative values remain visible. Optimization uses `max(0, signed benefit)`, rounded per option to integer micro-K·h with half-even rounding. Sparse exact dynamic programming selects at most one intervention per building within the budget. Ties prefer lower cost, fewer interventions, then lexicographic assignment. There is no hard-coded preference for cool roofs. See [the algorithm](docs/ALGORITHM.md).
 
-Each weather record represents one consecutive complete hour, held constant during
-that hour. `simulate` returns N end-of-hour temperatures and retains the initial
-state separately. Missing/irregular records must be handled by the caller; there
-is no implicit interpolation or timestamp inference. Gains and ventilation are
-constant for a run. Empty weather produces an empty temperature series.
+Costs are illustrative one-time fixed charges plus a roof-area rate. Decimal arithmetic rounds final charges upward to paise; budgets must be exact paise. The frontend displays backend totals and preserves score strings.
 
-The exact exponential update solves each hourly linear ODE. `expm1` avoids loss of
-precision for small steps. It is stable for positive C and nonnegative conductance;
-finite-value checks reject invalid inputs or unrepresentable results. The result
-also reports tau and whether hourly forward Euler satisfies dt*(UA+H)/C < 2.
-Exact integration removes Euler instability, not uncertainty from hourly weather
-aggregation or the model structure.
+## Architecture and technologies
 
-The standardized project metric is sum(max(T_end_hour - threshold, 0) * 1 hour),
-in K·h (numerically equivalent to °C·h). Supply the threshold explicitly. It is a
-building-overheating proxy using endpoint samples, not an exact integral of the
-continuous trajectory, a human-health risk measure, or TM52/TM59 compliance. No
-0–100 score is assigned. Initial temperature is not an extra hour of exposure.
+```text
+Browser → Amplify-hosted React/Vite → HTTPS API Gateway → Lambda adapter
+    → allocation service → synthetic preset → thermal comparisons → optimizer
+    ← versioned JSON: allocations, trajectories, costs, provenance and limitations
+```
 
-## Provisional demonstration inputs and uncertainty
+Python 3.10+ uses only the standard library at runtime. The frontend uses React 19, Vite 6 and Recharts 3; tests use unittest, Vitest, Testing Library and jsdom. Frontend dependencies are locked in `frontend/package-lock.json`. No AWS SDK is needed by the calculation service. See [architecture and API contract](docs/ARCHITECTURE.md).
 
-There are deliberately no authoritative archetype parameter presets. Every value
-below comes from an **author-selected synthetic demonstration**, with no measured
-or literature-derived calibration and no inferred uncertainty distribution:
+## Local development
 
-| Input | Demo value | Unresolved uncertainty |
-|---|---:|---|
-| Roof area | 40 m² | Geometry unspecified |
-| Roof U | 5 W/(m² K) | Assembly, thickness and surface films unspecified |
-| Baseline/coating alpha | 0.7 / 0.2 | Product, weathering, dirt and spectrum unspecified |
-| Effective zone C | 4,000,000 J/K | Coupled fabric, contents and time scale unknown |
-| Ventilation H | 40 W/K | Wind, openings and occupant schedules unknown |
-| Internal Q | 100 W | Occupancy and equipment schedules unknown |
-| Exterior h | 20 W/(m² K) | Wind/exposure dependence omitted |
-| Longwave correction | 0 K | Night-sky cooling omitted, not assumed physically absent |
-| Initial T / proxy threshold | 28 / 30 °C | Initialization arbitrary; threshold not a health boundary |
-| Weather | 8 hours at 35 °C, 800 W/m² | Synthetic constant forcing, not observations |
+Prerequisites: Python 3.10+ and Node.js 22 or 24 with npm. Run commands from the repository root unless indicated. No Python package installation is required; optional editable installation is `python -m pip install -e .`.
 
-Tests use synthetic inputs too. Their numerical values are test fixtures, not
-physical parameter evidence. No confidence interval or credible range is claimed.
-Users should replace these inputs with traceable assembly, weather and occupancy
-information and conduct sensitivity analysis before interpreting scenario effects.
-
-## Sources and scope
-
-The EnergyPlus [outside surface heat balance engineering reference](https://bigladdersoftware.com/epx/docs/23-2/engineering-reference/outside-surface-heat-balance.html)
-describes absorbed solar, exterior convection and longwave exchange, and the use
-of sol-air temperature to simplify these processes. It supports the physical
-concepts, **not the numerical demonstration inputs or validation of this engine**.
-[CIBSE TM52](https://www.cibse.org/knowledge-research/knowledge-portal/tm52-the-limits-of-thermal-comfort-avoiding-overheating-in-european-buildings/)
-is a distinct overheating assessment framework; this fixed-threshold air-temperature
-proxy does not implement it. The exact ODE solution and Euler stability condition
-follow directly from this model's linear heat balance.
-
-Unresolved assumptions include the one-node approximation and instantaneous roof
-response; omitted wall, window, ground and direct glazing solar exchanges; constant
-ventilation and gains; effective C and roof U identification; simplified longwave
-and exterior films; initialization/warm-up; roof-plane weather; and occupancy.
-Humidity, radiant temperature, air speed, comfort and physiology are absent.
-Measured indoor/outdoor data, independent held-out evaluation, parameter estimation
-and uncertainty analysis would be required for scientific validation. Tests check
-implementation and physical consistency only. Further development phases require separate approval.
-
-
-## Phase 3A: synthetic municipal scenarios
-
-Compare baseline, cool-roof, insulation and shading options, then allocate an
-explicit budget using exact sparse dynamic programming for rounded benefit scores.
-Inputs and costs require provenance; synthetic results are not validated household
-predictions, health risk estimates or established intervention effects. Real-data
-validation remains paused. Phase 3B sensitivity analysis is not implemented.
+Terminal 1:
 
 ```powershell
-python -B -m examples.municipal_demo --budget 75000 --output outputs/municipal_demo.json
+python -B -m heatshield.api.server
 ```
 
-The reproducible demo uses 30 hypothetical buildings and 168 hours of analytic
-weather. The budget is in illustrative INR major units. See [Phase 3A documentation](docs/phase3a.md)
-for contracts, physical/cost assumptions, precision, tie-breaking, solver limits,
-actual verification results and limitations. Generated outputs stay out of Git.
+Terminal 2:
 
-## Synthetic stress-scenario interpretation
+```powershell
+cd frontend
+npm ci
+# Clear any shell production setting to use the local proxy:
+Remove-Item Env:VITE_API_BASE_URL -ErrorAction SilentlyContinue
+npm run dev
+```
 
-The municipal preset is a **Roof-dominated synthetic stress scenario**. Large
-simulated temperature differences depend on provisional roof, ventilation, solar
-and effective-capacitance assumptions. Walls, windows, floors and variable
-ventilation are not represented by this reduced-order model. The preset is not
-representative housing evidence or an empirically established intervention effect.
-This transparency update preserves every numerical input, equation, trajectory,
-cost and optimization result; it does not tune temperatures or add model physics.
+Open http://127.0.0.1:5173. Python listens on http://127.0.0.1:8000; Vite proxies `/api` to it. If an ignored local `.env` file sets `VITE_API_BASE_URL`, unset that entry too. Both servers bind to loopback; stop with Ctrl+C.
+
+CLI-only demonstration:
+
+```powershell
+python -B -m examples.municipal_demo --budget 75000 --threshold 30
+```
+
+Optional JSON export: append `--output outputs/municipal_demo.json`. Generated outputs and local datasets are ignored by Git.
+
+## Tests and production build
+
+```powershell
+python -B -m unittest discover -s tests -v
+cd frontend
+npm test
+npm run build
+npm run verify:build
+```
+
+With Python and Vite running, `npm run verify:local` exercises the actual frontend API client through the proxy and reconciles it against the direct backend. `npm run preview` serves the build at http://127.0.0.1:4173 with the same local API proxy.
+
+The October 11 submission check passed **72 Python tests and 16 frontend tests**. Coverage includes analytical thermal behavior, intervention transformations, adverse benefits, exact money, exhaustive-search comparisons on small optimization cases, deterministic ties, state-limit failure, API validation, Lambda packaging and UI states. Tests establish implementation consistency, **not scientific accuracy**. Component tests mock chart drawing and native dialog methods; manual browser review remains relevant.
+
+The public dashboard was also rehearsed in Chrome with both demo budgets and a real building chart. See [verification evidence and boundaries](docs/VERIFICATION.md).
+
+## Deployment overview
+
+The public dashboard is deployed on Amplify; API Gateway forwards requests to Lambda. `heatshield.api.lambda_handler.handler` accepts HTTP API payload v2 events and delegates to the transport-independent service. This repository does not provision AWS infrastructure automatically.
+
+To prepare artifacts for the existing API, without deploying:
+
+```powershell
+cd frontend
+$env:VITE_API_BASE_URL = 'https://hdt6pym543.execute-api.ap-southeast-2.amazonaws.com'
+npm run build:deploy
+cd ..
+python -B scripts/package_frontend.py
+python -B scripts/package_lambda.py
+```
+
+The API origin is public build-time configuration, not a credential. Packaging writes ignored ZIPs under `outputs/` and does not upload or alter AWS resources. Use the Python frontend packager: it verifies portable ZIP paths and avoids the Windows archive-header defect that caused missing Amplify assets.
+
+`amplify.yml` prepares optional GitHub monorepo builds with app root `frontend`, Node 24, tests and asset checks. Its presence does not establish that Git-based deployment is enabled. Preserve the working public origin and CORS configuration. See [Amplify deployment and incident notes](docs/amplify_frontend.md) and [Lambda preparation](docs/phase5.md).
+
+Verify published assets without changing AWS:
+
+```powershell
+cd frontend
+npm run verify:public -- https://staging.d22u8i6a71q15e.amplifyapp.com/
+```
+
+## Limitations and future improvements
+
+All preset thermal inputs, weather and costs are author-selected provisional assumptions, not calibrated measurements or market quotations. Large simulated differences depend on roof, ventilation, solar and capacitance assumptions. Walls, windows, floors, variable ventilation, humidity, radiant comfort and physiology are not represented. Archetype names do not establish representative construction properties.
+
+Benefits cover seven synthetic days, while costs are one-time charges. Buildings receive equal weighting; population, vulnerability, equity, maintenance and lifetime effects are absent. Exact optimization applies to supplied rounded scores, not universally optimal real-world policy. The 50,000-candidate-state cap can reject a request rather than return an approximation.
+
+Real-data validation remains paused following [feasibility](docs/research/tasgaonkar_feasibility.md) and [integrity](docs/research/tasgaonkar_integrity.md) investigations. Unresolved clock conventions and household grouping prevent a defensible held-out validation claim. Sensitivity analysis, empirical validation, richer physics and equity-aware objectives are future work, not current features.
+
+[Phase 3A](docs/phase3a.md) retains detailed preset values, numerical conventions and physical-background references. Those references support concepts, not the demonstration parameters or model accuracy. [Phase 4](docs/phase4.md) records local implementation history. No measured environmental impact or validation statistics are claimed.

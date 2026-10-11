@@ -29,7 +29,8 @@ it('uses the API, preserves authoritative totals and exposes details and stale c
   expect(screen.getByRole('dialog')).toBeTruthy();
   expect(screen.getByLabelText('Scenario interpretation').textContent).toContain('Walls, windows, floors and variable ventilation');
   expect(screen.getByLabelText('Scenario interpretation').textContent).toContain('provisional roof, ventilation, solar and capacitance');
-  expect(screen.getByText('Roof area (m?)')).toBeTruthy();
+  fireEvent.click(screen.getByText('Physical inputs, assumptions and provenance'));
+  expect(screen.getByText('Roof area (m²)')).toBeTruthy();
   expect(screen.getByText('40')).toBeTruthy();
   expect(screen.getByText(/increases overheating/)).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Close building details' }));

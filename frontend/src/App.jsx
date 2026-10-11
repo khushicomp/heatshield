@@ -27,7 +27,7 @@ export default function App() {
     } catch (e) { setError(e.message || 'Unable to connect to the local API.'); }
     finally { setLoading(false); }
   }
-  return <><header className="site-header"><div className="brand-mark" aria-hidden="true">H</div><div><h1>HeatShield</h1><p>Cooling Where It Counts</p></div><span className="header-label">MUNICIPAL PLANNING LAB</span></header>
+  return <><header className="site-header"><div className="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none"><path d="M20 5 32 10v10c0 7-7 12-12 15C15 32 8 27 8 20V10L20 5Z" stroke="currentColor" strokeWidth="2"/><path d="M14 21c3-7 6 7 12 0M14 16c3-7 6 7 12 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg></div><div><h1>HeatShield<span className="brand-dot" aria-hidden="true">.</span></h1><p>Cooling Where It Counts</p></div><span className="header-label"><span className="status-dot" aria-hidden="true"/> MUNICIPAL COOLING PLANNER</span></header>
     <main><div className="notice"><strong>Synthetic scenario — not empirically validated</strong><span>Roof-dominated synthetic stress scenario</span><span>Explore provisional cooling allocations. These are not predictions for actual households.</span></div>
       <PlanningControls {...{ budget, threshold, setBudget, setThreshold, loading }} onSubmit={run}/>
       {error && <div role="alert" className="error">{error}{result && ' The previous successful result remains below.'}</div>}
