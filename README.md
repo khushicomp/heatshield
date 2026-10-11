@@ -2,7 +2,7 @@
 
 **Explore cooling interventions. Allocate a limited budget. See the assumptions.**
 
-[Live dashboard](https://staging.d22u8i6a71q15e.amplifyapp.com/) · [GitHub](https://github.com/khushicomp/heatshield) · [Demo script](docs/DEMO_SCRIPT.md) · [Submission](docs/HACKATHON_SUBMISSION.md)
+[Live dashboard](https://staging.d22u8i6a71q15e.amplifyapp.com/) · [Architecture](docs/ARCHITECTURE.md) · [Algorithm](docs/ALGORITHM.md) · [Verification](docs/VERIFICATION.md)
 
 > **Synthetic scenario — not empirically validated.** The dashboard uses a **Roof-dominated synthetic stress scenario**: 30 hypothetical buildings and seven days of analytic hourly weather. Results are model demonstrations, not predictions for actual households, established cooling effects or public-health outcomes.
 
@@ -113,7 +113,7 @@ python -B scripts/package_lambda.py
 
 The API origin is public build-time configuration, not a credential. Packaging writes ignored ZIPs under `outputs/` and does not upload or alter AWS resources. Use the Python frontend packager: it verifies portable ZIP paths and avoids the Windows archive-header defect that caused missing Amplify assets.
 
-`amplify.yml` prepares optional GitHub monorepo builds with app root `frontend`, Node 24, tests and asset checks. Its presence does not establish that Git-based deployment is enabled. Preserve the working public origin and CORS configuration. See [Amplify deployment and incident notes](docs/amplify_frontend.md) and [Lambda preparation](docs/phase5.md).
+`amplify.yml` prepares optional GitHub monorepo builds with app root `frontend`, Node 24, tests and asset checks. Its presence does not establish that Git-based deployment is enabled. Preserve the working public origin and CORS configuration. See [deployment and packaging](docs/DEPLOYMENT.md).
 
 Verify published assets without changing AWS:
 
@@ -130,4 +130,4 @@ Benefits cover seven synthetic days, while costs are one-time charges. Buildings
 
 Real-data validation remains paused following [feasibility](docs/research/tasgaonkar_feasibility.md) and [integrity](docs/research/tasgaonkar_integrity.md) investigations. Unresolved clock conventions and household grouping prevent a defensible held-out validation claim. Sensitivity analysis, empirical validation, richer physics and equity-aware objectives are future work, not current features.
 
-[Phase 3A](docs/phase3a.md) retains detailed preset values, numerical conventions and physical-background references. Those references support concepts, not the demonstration parameters or model accuracy. [Phase 4](docs/phase4.md) records local implementation history. No measured environmental impact or validation statistics are claimed.
+[Model assumptions](docs/MODEL_ASSUMPTIONS.md) documents the exact synthetic preset and physical-background references. Those references support concepts, not the demonstration parameters or model accuracy. No measured environmental impact or validation statistics are claimed.

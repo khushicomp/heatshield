@@ -21,7 +21,7 @@ flowchart LR
     Gateway --> UI
 ```
 
-The working deployment is reported by the project owner and the adapter is supported by repository code. [Public asset, API and browser checks](VERIFICATION.md) verify observable behavior, not private AWS runtime, IAM policy, memory, throttling or log-retention settings. CloudWatch/configuration recommendations in Phase 5 notes are not evidence of deployed settings.
+The working deployment is reported by the project owner and the adapter is supported by repository code. [Public asset, API and browser checks](VERIFICATION.md) verify observable behavior, not private AWS runtime, IAM policy, memory, throttling or log-retention settings.
 
 ## Responsibilities
 
@@ -84,4 +84,8 @@ The API hostname is in `ap-southeast-2`. API Gateway owns preflight/CORS; the ad
 
 The API origin is public build-time configuration. Root `amplify.yml` prepares optional GitHub builds, without proving that pipeline is enabled. Packaging and tests create no AWS resources. Preserve the working hosting origin and CORS configuration.
 
-See [deployment preparation](phase5.md) and [Amplify asset incident](amplify_frontend.md). This submission update does not change cloud configuration.
+See [deployment and packaging](DEPLOYMENT.md). Documentation changes do not change cloud configuration.
+
+## Dashboard behavior
+
+Results are tied to submitted controls. Changed controls mark results stale; a failed subsequent request retains the previous successful result with an explanatory message. The native building dialog supports Escape dismissal and restores focus to its opener. An hourly table accompanies the chart. Baseline-only selections are identified; adverse option benefits remain visible. Component tests mock chart drawing and dialog methods, so these tests alone do not establish real-browser accessibility.

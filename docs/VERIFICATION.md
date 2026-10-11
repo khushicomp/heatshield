@@ -1,4 +1,4 @@
-# Submission verification — October 11, 2026
+# Technical verification — October 11, 2026
 
 These checks concern software and deployment behavior, not empirical model validation. No AWS resources were created, changed or deleted during this review. The thermal engine, optimizer, synthetic inputs and Phase 2 research artifacts are unchanged.
 
@@ -19,10 +19,6 @@ These checks concern software and deployment behavior, not empirical model valid
 
 At INR 75,000 and 30 °C, the public response reported 30 selections, 24 nonbaseline interventions, INR 74,700 spent, INR 300 remaining and score string `19380224213`. At INR 50,000, the browser displayed INR 49,900 spent, INR 100 remaining and 17 interventions. These are synthetic model outputs, not impact measurements or deployment-performance benchmarks.
 
-The first scripted browser attempt timed out while changing the second budget through programmatic input events. Repeating with normal keyboard input and spaced requests completed both allocations. No application change was made for that automation failure. A Vite server already occupied port 5173; the integration check used that existing server without terminating it.
-
 Screenshots and generated ZIPs remain in ignored `outputs/`, outside Git. Component tests mock charts and native dialog methods. The browser rehearsal is a focused smoke check, not a complete accessibility audit, mobile-device test or coverage of every tooltip/keyboard interaction. Secret scans are pattern-based and cannot guarantee that every form of sensitive information is detectable.
 
 No authenticated AWS configuration audit was available: runtime, IAM, throttling, concurrency and log settings remain outside this verification. The owner reports the working Lambda/API Gateway deployment; public responses verify observable behavior. GitHub-connected Amplify builds are prepared but not independently established as enabled.
-
-Before submission, record and review the final video, confirm judge access to GitHub and the video, replace the [submission placeholder](HACKATHON_SUBMISSION.md), and complete the official form.
